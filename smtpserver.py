@@ -12,7 +12,6 @@ from twisted.internet import defer
 
 @implementer(smtp.IMessage)
 class MensajeHandler:
-    """Acumula las líneas del correo y lo guarda al terminar"""
 
     def __init__(self, ruta_archivo):
         self.ruta = ruta_archivo
@@ -33,7 +32,6 @@ class MensajeHandler:
 
 @implementer(IMessageDelivery)
 class MailDelivery:
-    """Esta clase decide qué hacer con cada correo que llega"""
 
     def __init__(self, mail_storage, domains):
         self.mail_storage = mail_storage
