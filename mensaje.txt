@@ -1,0 +1,10 @@
+Subject: Hola {{nombre}}
+
+Estimado {{nombre}},
+
+Este es un mensaje personalizado enviado de forma masiva
+usando nuestro cliente SMTP con Twisted.
+
+Si recibes este correo, el sistema esta funcionando correctamente.
+
+Saludos.
