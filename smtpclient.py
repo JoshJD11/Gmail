@@ -76,7 +76,7 @@ def enviar_todos(servidor, csv_ruta, mensaje_ruta):
                 from_addr='yo@prueba.com',
                 to_addrs=[email],
                 msg=msg_bytes,
-                port=2525
+                port=args.port
             )
 
             d.addCallback(lambda _, e=email: print(f"  ✓ Enviado a {e}"))
@@ -118,6 +118,8 @@ if __name__ == '__main__':
         required=True,
         help='Archivo de texto con la plantilla del mensaje'
     )
+
+    parser.add_argument('-P', '--port', type=int, default=2525, help='Puerto del servidor SMTP')
 
     args = parser.parse_args()
 

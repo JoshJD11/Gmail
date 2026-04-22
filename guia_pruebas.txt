@@ -1,0 +1,208 @@
+================================================================
+        GUÍA DE PRUEBAS - SISTEMA DE CORREO ELECTRÓNICO
+        Ingeniería de Computación - Redes - TEC
+================================================================
+
+ESTRUCTURA DE ARCHIVOS
+----------------------------------------------------------------
+Gmail/
+    smtpserver.py
+    smtpclient.py
+    pop3server.py
+    xmpp_notifier.py
+    destinatarios.csv
+    mensaje.txt
+    documentacion.pdf
+    
+Kickoff/
+    Kickoff.docx
+    Kickoff.docx.asc
+    Kickoff.docx.sha1
+    Kickoff.docx.tsr
+
+
+================================================================
+1. SMTP SERVER (smtpserver.py)
+================================================================
+
+ARRANCAR EL SERVIDOR:
+    python smtpserver.py -d prueba.com -s /tmp/correos -p 2525
+
+    -d prueba.com   → dominio que acepta el servidor
+    -s /tmp/correos → carpeta donde guarda los correos
+    -p 2525         → puerto (usamos 2525 porque 25 requiere root)
+
+    El servidor se queda corriendo. No cerrar esta terminal.
+
+----------------------------------------------------------------
+PROBAR CON TELNET (abrir una segunda terminal):
+
+    telnet localhost 2525
+
+    Escribir línea por línea:
+
+        EHLO cliente.com
+        MAIL FROM: <yo@otrodominio.com>
+        RCPT TO: <maria@prueba.com>
+        DATA
+        Subject: Prueba
+
+        Hola Maria, esto es una prueba.
+        .
+        QUIT
+
+    NOTA: el punto solo en una línea indica fin del correo.
+    NOTA: el dominio en RCPT TO debe coincidir con -d
+
+----------------------------------------------------------------
+VERIFICAR QUE SE GUARDÓ:
+
+    ls /tmp/correos/maria/
+    cat /tmp/correos/maria/*.eml
+
+
+================================================================
+2. SMTP CLIENT (smtpclient.py)
+================================================================
+
+REQUISITO: tener smtpserver.py corriendo en otra terminal.
+
+ARRANCAR EL CLIENTE:
+    python smtpclient.py -H localhost -c destinatarios.csv -m mensaje.txt -P 2525
+
+    -H localhost         → servidor SMTP al que conectarse
+    -c destinatarios.csv → archivo CSV con destinatarios
+    -m mensaje.txt       → archivo con la plantilla del mensaje
+    -P 2525  -> puerto del server
+
+FORMATO DEL CSV (destinatarios.csv):
+    email,nombre
+    maria@prueba.com,Maria Garcia
+    juan@prueba.com,Juan Perez
+    carlos@prueba.com,Carlos Rodriguez
+
+FORMATO DEL MENSAJE (mensaje.txt):
+    Subject: Hola {{nombre}}
+
+    Estimado {{nombre}}, este es un mensaje personalizado.
+
+    Saludos.
+
+    NOTA: {{nombre}} se reemplaza con el nombre del CSV.
+    NOTA: dejar una línea vacía entre Subject y el cuerpo.
+
+VERIFICAR QUE SE ENVIARON:
+    ls /tmp/correos/maria/
+    ls /tmp/correos/juan/
+    ls /tmp/correos/carlos/
+    cat /tmp/correos/maria/*.eml
+
+
+================================================================
+3. POP3 SERVER (pop3server.py)
+================================================================
+
+ARRANCAR EL SERVIDOR:
+    python pop3server.py -s /tmp/correos -p 1100
+
+    -s /tmp/correos → misma carpeta que usó el SMTP server
+    -p 1100         → puerto (usamos 1100 porque 110 requiere root)
+
+    El servidor se queda corriendo. No cerrar esta terminal.
+
+----------------------------------------------------------------
+PROBAR CON TELNET (abrir otra terminal):
+
+    telnet localhost 1100
+
+    Escribir línea por línea:
+
+        USER maria
+        PASS secreto123
+        LIST
+        RETR 1
+        DELE 1
+        QUIT
+
+    Respuestas esperadas:
+        +OK USER accepted, send PASS
+        +OK Authentication succeeded
+        +OK N messages  (N = número de correos)
+        +OK (contenido del correo)
+        +OK (marcado para borrar)
+        +OK (desconectado, correo borrado del servidor)
+
+    USUARIOS DISPONIBLES (definidos en pop3server.py):
+        maria / secreto123
+        juan  / clave456
+
+----------------------------------------------------------------
+VERIFICAR DESPUÉS DE QUIT:
+    ls /tmp/correos/maria/
+    (el archivo debe haber desaparecido si usaste DELE)
+
+
+================================================================
+4. XMPP NOTIFIER (xmpp_notifier.py)
+================================================================
+
+REQUISITO: tener dos cuentas XMPP creadas en conversations.im
+    - Una cuenta para el bot que envía
+    - Una cuenta para recibir la notificación
+
+REQUISITO: tener correos en la carpeta del usuario
+    (enviar algunos con smtpclient.py primero)
+
+REQUISITO: tener Gajim instalado para ver la notificación
+    sudo apt install gajim
+
+ARRANCAR EL NOTIFICADOR:
+    python xmpp_notifier.py \
+        --jid mibot2026@conversations.im \
+        --password abriloches13 \
+        --to mirecepcion2026@conversations.im \
+        --storage /tmp/correos/maria
+
+    --jid      → cuenta XMPP del bot que envía
+    --password → contraseña del bot
+    --to       → cuenta XMPP que recibe la notificación
+    --storage  → carpeta del usuario a revisar
+
+    La notificación llega a Gajim con el texto:
+    "Tienes N correo(s) sin leer en /tmp/correos/maria"
+
+
+================================================================
+FLUJO COMPLETO (todo junto)
+================================================================
+
+Terminal 1:  python smtpserver.py -d prueba.com -s /tmp/correos -p 2525
+Terminal 2:  python pop3server.py -s /tmp/correos -p 1100
+Terminal 3:  python smtpclient.py -H localhost -c destinatarios.csv -m mensaje.txt
+Terminal 4:  python xmpp_notifier.py --jid bot@conversations.im --password pass --to recepcion@conversations.im --storage /tmp/correos/maria
+
+
+================================================================
+ERRORES COMUNES
+================================================================
+
+Error: Connection refused
+    → El servidor no está corriendo. Verificar terminal 1.
+
+Error: 553 SMTPBadRcpt
+    → El dominio en RCPT TO no está en la lista -d del server.
+
+Error: Address already in use
+    → El puerto está ocupado. Cambiar a otro, ej: -p 2526
+
+Error: ImportError
+    → Falta una dependencia. Ejecutar:
+      pip install twisted slixmpp zope.interface
+
+Error: -ERR Bad message number
+    → No hay correos. Enviar primero con smtpclient.py
+
+NOTA: /tmp/correos se borra al reiniciar la computadora.
+Para persistencia usar /var/mail/ o una carpeta en el home.
+
+================================================================
